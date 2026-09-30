@@ -9,18 +9,23 @@ jobs:
   sync-upstream:
     runs-on: ubuntu-latest
     steps:
-      - name: Merge upstream (yonggekkk/Cloudflare-vless-trojan)
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge upstream yonggekkk/Cloudflare-vless-trojan into main
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          br=$(gh api "repos/$REPO" --jq .default_branch)
-          out=$(gh api --method PUT -H "Content-Type: application/json" -f branch="$br" "repos/$REPO/merge-upstream" 2>&1) || {
-            if echo "$out" | grep -qiE "already up to date|non-fast-forward"; then
-              echo "upstream sync: already current"
-            else
-              echo "$out"; exit 1
-            fi
-          }
-          echo "upstream merged: $(echo "$out" | head -c 200)"
+          git config user.name="github-actions[bot]"
+          git config user.email="41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git remote add upstream https://github.com/yonggekkk/Cloudflare-vless-trojan.git
+          git fetch --no-tags upstream main
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "daily checkout: already current"
+          else
+            git merge --no-edit -m "daily checkout: sync upstream $(date -u +%F)" upstream/main
+            git push origin HEAD:main
+            echo "daily checkout: merged upstream $(git rev-parse --short upstream/main)"
+          fi
